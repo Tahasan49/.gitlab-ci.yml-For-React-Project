@@ -1,0 +1,76 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  BUILD_PATH: "dist"
+
+build-dev:
+  tags:
+    - YOUR_GITLAB_RUNNER    #-----> This side is your Gitlab Runner name. If you dont have, you need first install Gitlab runner from IIS server 
+  stage: build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  script:
+    - echo "Installing dependencies for DEV..."
+    - npm install
+    - npx vite build --mode development
+  artifacts:
+    paths:
+      - $BUILD_PATH
+    expire_in: 1 hour
+
+build-prod:
+  tags:
+    - YOUR_GITLAB_RUNNER    #-----> This side is your Gitlab Runner name. If you dont have, you need first install Gitlab runner from IIS server 
+  stage: build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "prod"'
+  script:
+    - echo "Installing dependencies for PROD..."
+    - npm install
+    - npx vite build --mode production
+  artifacts:
+    paths:
+      - $BUILD_PATH
+    expire_in: 1 hour
+
+deploy-dev:
+  tags:
+    - YOUR_GITLAB_RUNNER    #-----> This side is your Gitlab Runner name. If you dont have, you need first install Gitlab runner from IIS server 
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  variables:
+    DEPLOY_PATH: "C:\\" #-----> This side is your in IIS server live test React project address
+  script:
+    - echo "Stopping IIS..."
+    - powershell.exe -Command "Stop-Service -Name 'W3SVC' -Force"
+    - echo "Cleaning dev deploy path..."
+    - powershell.exe -Command "Remove-Item -Recurse -Force '$env:DEPLOY_PATH\\*'"
+    - echo "Copying build files to dev path..."
+    - powershell.exe -Command "Copy-Item -Recurse -Force '$env:BUILD_PATH\\*' '$env:DEPLOY_PATH'"
+    - echo "Starting IIS..."
+    - powershell.exe -Command "Start-Service -Name 'W3SVC'"
+  needs:
+    - build-dev
+
+deploy-prod:
+  tags:
+    - YOUR_GITLAB_RUNNER    #-----> This side is your Gitlab Runner name. If you dont have, you need first install Gitlab runner from IIS server 
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "prod"'
+  variables:
+    DEPLOY_PATH: "c:\\" #-----> This side is your in IIS server live React project address
+  script:
+    - echo "Stopping IIS..."
+    - powershell.exe -Command "Stop-Service -Name 'W3SVC' -Force"
+    - echo "Cleaning prod deploy path..."
+    - powershell.exe -Command "Remove-Item -Recurse -Force '$env:DEPLOY_PATH\\*'"
+    - echo "Copying build files to prod path..."
+    - powershell.exe -Command "Copy-Item -Recurse -Force '$env:BUILD_PATH\\*' '$env:DEPLOY_PATH'"
+    - echo "Starting IIS..."
+    - powershell.exe -Command "Start-Service -Name 'W3SVC'"
+  needs:
+    - build-prod
